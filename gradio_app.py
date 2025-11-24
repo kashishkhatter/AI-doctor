@@ -148,8 +148,19 @@ with gr.Blocks(title="AI Doctor with Vision and Voice") as demo:
         outputs=[audio_input, image_input],
     )
 
-demo.launch(
-    debug=True,
-    server_name=os.environ.get("HOST", "127.0.0.1"),
-    server_port=int(os.environ.get("PORT", 7860)),
-)
+# Detect if running on Render (because Render sets PORT)
+port = int(os.environ.get("PORT", 0))
+
+if port:  
+    # Running on Render
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=port
+    )
+else:
+    # Running locally
+    demo.launch(
+        server_name="127.0.0.1",
+        server_port=7860,
+        debug=True
+    )

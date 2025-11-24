@@ -9,11 +9,17 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-def analyze_image_with_query(query, model, encoded_image=None, messages=None):
+def analyze_image_with_query(
+    query=None,
+    model="meta-llama/llama-4-scout-17b-16e-instruct",
+    encoded_image=None,
+    messages=None,
+):
+    """Send either a single prompt or an accumulated conversation to Groq."""
     client = Groq()
 
     if messages is None:
-        content = [{"type": "text", "text": query}]
+        content = [{"type": "text", "text": query or ""}]
         if encoded_image:
             content.append(
                 {

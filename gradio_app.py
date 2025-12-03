@@ -23,11 +23,46 @@ system_prompt_no_image = """You have to act as a professional doctor, i know you
             Dont respond as an AI model in markdown, your answer should mimic that of an actual doctor not an AI bot,
             Keep your answer concise (max 2 sentences). No preamble, start your answer right away please"""
 
+def format_chat_history(conversation_history):
+    """Format conversation history for display in chatbot component"""
+    chat_display = []
+    for msg in conversation_history:
+        if msg["role"] == "user":
+            # Extract text from user message
+            text_content = ""
+            has_image = False
+            for content_item in msg["content"]:
+                if content_item["type"] == "text":
+                    # Remove system prompt to show only user's actual question
+                    text = content_item["text"]
+                    text = text.replace(system_prompt_with_image, "").replace(system_prompt_no_image, "").strip()
+                    text_content = text
+                elif content_item["type"] == "image_url":
+                    has_image = True
+            
+            display_text = text_content
+            if has_image:
+                display_text += " 📷"
+            chat_display.append([display_text, None])
+        
+        elif msg["role"] == "assistant":
+            # Extract text from assistant message
+            assistant_text = ""
+            for content_item in msg["content"]:
+                if content_item["type"] == "text":
+                    assistant_text = content_item["text"]
+            
+            # Update the last message with assistant response
+            if chat_display:
+                chat_display[-1][1] = assistant_text
+    
+    return chat_display
+
 def process_inputs(audio_filepath, image_filepath, history):
     conversation_history = history or []
     if not audio_filepath:
         warning = "Please finish recording and click Stop before submitting."
-        return "", warning, None, conversation_history, gr.update(visible=False)
+        return "", warning, None, conversation_history, gr.update(visible=False), []
 
     speech_to_text_output = transcribe_with_groq(
         GROQ_API_KEY=os.environ.get("GROQ_API_KEY"),
@@ -76,17 +111,21 @@ def process_inputs(audio_filepath, image_filepath, history):
         input_text=doctor_response, output_filepath="final.wav"
     )
 
+    # Format chat history for display
+    chat_display = format_chat_history(updated_conversation)
+
     return (
         speech_to_text_output,
         doctor_response,
         voice_of_doctor,
         updated_conversation,
         gr.update(visible=True),
+        chat_display,
     )
 
 
 def reset_conversation():
-    return "", "", None, [], gr.update(visible=False), None, None
+    return "", "", None, [], gr.update(visible=False), None, None, []
 
 
 def prepare_followup():
@@ -121,11 +160,19 @@ with gr.Blocks(title="AI Doctor with Vision and Voice") as demo:
             speech_out = gr.Textbox(label="Speech to Text")
             doctor_out = gr.Textbox(label="Doctor's Response")
             doctor_audio = gr.Audio(label="Doctor's Voice", interactive=False)
+    
+    # Chat history component below the main interface
+    with gr.Row():
+        chat_history = gr.Chatbot(
+            label="Conversation History",
+            height=400,
+            show_label=True,
+        )
 
     submit_btn.click(
         process_inputs,
         inputs=[audio_input, image_input, convo_state],
-        outputs=[speech_out, doctor_out, doctor_audio, convo_state, followup_btn],
+        outputs=[speech_out, doctor_out, doctor_audio, convo_state, followup_btn, chat_history],
     )
 
     clear_btn.click(
@@ -139,6 +186,7 @@ with gr.Blocks(title="AI Doctor with Vision and Voice") as demo:
             followup_btn,
             audio_input,
             image_input,
+            chat_history,
         ],
     )
 
